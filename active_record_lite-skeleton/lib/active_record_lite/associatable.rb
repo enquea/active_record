@@ -17,8 +17,8 @@ end
 class BelongsToAssocParams < AssocParams
 
   def initialize(name, params)
-    @other_class_name = params[:class_name] || name.camelcase
-    @foreign_key = params[:foreign_key] || "#{@other_class_name}_id"
+    @other_class_name = params[:class_name] || name.to_s.camelize
+    @foreign_key = params[:foreign_key] || "#{@other_class_name.downcase}_id"
     @primary_key = params[:primary_key] || "id"
   end
 
@@ -28,6 +28,9 @@ end
 
 class HasManyAssocParams < AssocParams
   def initialize(name, params, self_class)
+    @primary_key = params[:primary_key] || "id"
+    @foreign_key = params[:foreign_key] || "#{self_class.downcase}_id"
+    @other_class_name = params[:class_name] || name.to_s.singularize.camelize
   end
 
   def type
@@ -41,16 +44,19 @@ module Associatable
   def belongs_to(name, params = {})
     aps = BelongsToAssocParams.new(name, params)
 
-    p self
-
-    # out = DBConnection.execute("
-    #   SELECT *
-    #   FROM #{aps.other_table}
-    #   WHERE #{self.id} = #{aps.other_table}
-    # ")
+    prc = Proc.new do
+      aps.other_class.find(self.send(aps.foreign_key))
+    end
+    self.send(:define_method, name, &prc)
   end
 
   def has_many(name, params = {})
+    aps = HasManyAssocParams.new(name, params, self.class)
+
+    prc = Proc.new do
+      aps.other_class.where("#{aps.foreign_key}" => self.send(aps.primary_key))
+    end
+    self.send(:define_method, name, &prc)
   end
 
   def has_one_through(name, assoc1, assoc2)

@@ -5,6 +5,8 @@ class MassObject
     @attributes = attributes.map do |attr|
       attr.to_sym
     end
+
+    self.my_attr_accessor(*attributes)
   end
 
   # takes a list of attributes.
